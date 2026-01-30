@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Search, Bell, Menu, X, User, LogOut, Settings, Heart, History } from 'lucide-react';
+import { Search, Bell, Menu, X, User, LogOut, Settings, Heart, History, Upload } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -104,6 +104,13 @@ export const Navbar: React.FC = () => {
 
             {isAuthenticated ? (
               <>
+                {/* Upload Button */}
+                <Button variant="ghost" size="icon" asChild aria-label="Upload video" className="hidden sm:flex">
+                  <Link to="/upload">
+                    <Upload className="w-5 h-5" />
+                  </Link>
+                </Button>
+
                 {/* Notifications */}
                 <Button variant="ghost" size="icon" aria-label="Notifications" className="hidden sm:flex">
                   <Bell className="w-5 h-5" />
