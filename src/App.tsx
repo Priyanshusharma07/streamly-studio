@@ -11,6 +11,7 @@ import Browse from "./pages/Browse";
 import Watch from "./pages/Watch";
 import Live from "./pages/Live";
 import Profile from "./pages/Profile";
+import UploadPage from "./pages/Upload";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -31,6 +32,7 @@ const App = () => (
             <Route path="/live" element={<Live />} />
             <Route path="/live/:id" element={<Live />} />
             <Route path="/profile" element={<Profile />} />
+            <Route path="/upload" element={<UploadPage />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>
