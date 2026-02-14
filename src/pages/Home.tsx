@@ -1,24 +1,24 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Layout } from '@/components/layout/Layout';
 import { HeroBanner } from '@/components/video/HeroBanner';
 import { VideoCarousel } from '@/components/video/VideoCarousel';
 import { SkeletonHero, SkeletonCarousel } from '@/components/video/SkeletonCard';
+import { useTrendingVideos, useRecentVideos, useMovies } from '@/hooks/useVideos';
 import { mockVideos, liveStreams, featuredVideo } from '@/data/mockData';
 
 const Home: React.FC = () => {
-  const [isLoading, setIsLoading] = useState(true);
   const navigate = useNavigate();
+  const { data: trending, isLoading: trendingLoading } = useTrendingVideos();
+  const { data: recent, isLoading: recentLoading } = useRecentVideos();
+  const { data: movies, isLoading: moviesLoading } = useMovies();
 
-  useEffect(() => {
-    // Simulate loading
-    const timer = setTimeout(() => setIsLoading(false), 1000);
-    return () => clearTimeout(timer);
-  }, []);
+  const isLoading = trendingLoading && recentLoading && moviesLoading;
 
-  const trendingVideos = mockVideos.slice(0, 8);
-  const movies = mockVideos.filter((v) => v.type === 'movie');
-  const recentlyAdded = [...mockVideos].reverse().slice(0, 8);
+  // Use API data if available, fallback to mock data
+  const trendingVideos = trending && trending.length > 0 ? trending : mockVideos.slice(0, 8);
+  const recentVideos = recent && recent.length > 0 ? recent : [...mockVideos].reverse().slice(0, 8);
+  const movieVideos = movies && movies.length > 0 ? movies : mockVideos.filter((v) => v.type === 'movie');
 
   if (isLoading) {
     return (
@@ -33,10 +33,8 @@ const Home: React.FC = () => {
 
   return (
     <Layout>
-      {/* Hero Banner */}
       <HeroBanner video={featuredVideo} />
 
-      {/* Trending Now */}
       <div className="-mt-20 relative z-10">
         <VideoCarousel
           title="Trending Now"
@@ -46,7 +44,6 @@ const Home: React.FC = () => {
         />
       </div>
 
-      {/* Live Streams */}
       <VideoCarousel
         title="🔴 Live Now"
         videos={liveStreams}
@@ -54,23 +51,20 @@ const Home: React.FC = () => {
         onSeeAll={() => navigate('/live')}
       />
 
-      {/* Movies */}
       <VideoCarousel
         title="Popular Movies"
-        videos={movies}
+        videos={movieVideos}
         showSeeAll
         onSeeAll={() => navigate('/browse?type=movie')}
       />
 
-      {/* Recently Added */}
       <VideoCarousel
         title="Recently Added"
-        videos={recentlyAdded}
+        videos={recentVideos}
         showSeeAll
         onSeeAll={() => navigate('/browse?sort=recent')}
       />
 
-      {/* Footer */}
       <footer className="py-12 border-t border-border mt-12">
         <div className="container mx-auto px-4 text-center text-muted-foreground">
           <p className="text-sm">© 2024 StreamVault. All rights reserved.</p>
