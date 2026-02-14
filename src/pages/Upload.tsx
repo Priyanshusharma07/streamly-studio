@@ -9,14 +9,14 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
+import { useVideoUpload } from '@/hooks/useVideoUpload';
 import { categories, languages } from '@/data/mockData';
-
-type UploadStatus = 'idle' | 'uploading' | 'processing' | 'success' | 'error';
 
 const UploadPage: React.FC = () => {
   const navigate = useNavigate();
   const { isAuthenticated } = useAuth();
   const { toast } = useToast();
+  const { step, progress, error, startUpload, reset } = useVideoUpload();
 
   const videoInputRef = useRef<HTMLInputElement>(null);
   const thumbnailInputRef = useRef<HTMLInputElement>(null);
@@ -25,14 +25,21 @@ const UploadPage: React.FC = () => {
   const [description, setDescription] = useState('');
   const [category, setCategory] = useState('');
   const [language, setLanguage] = useState('');
-  const [videoType, setVideoType] = useState<'movie' | 'series' | 'short'>('movie');
 
   const [videoFile, setVideoFile] = useState<File | null>(null);
   const [thumbnailFile, setThumbnailFile] = useState<File | null>(null);
   const [thumbnailPreview, setThumbnailPreview] = useState<string | null>(null);
 
-  const [uploadStatus, setUploadStatus] = useState<UploadStatus>('idle');
-  const [uploadProgress, setUploadProgress] = useState(0);
+  // Watch for success/error steps
+  React.useEffect(() => {
+    if (step === 'success') {
+      toast({ title: 'Upload complete!', description: 'Your video has been uploaded and is being processed.' });
+      setTimeout(() => navigate('/browse'), 2000);
+    }
+    if (step === 'error' && error) {
+      toast({ title: 'Upload failed', description: error, variant: 'destructive' });
+    }
+  }, [step, error]);
 
   if (!isAuthenticated) {
     navigate('/login');
@@ -84,47 +91,46 @@ const UploadPage: React.FC = () => {
     return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
   };
 
-  const simulateUpload = async () => {
+  const getVideoExtension = (file: File): string => {
+    const name = file.name;
+    return name.substring(name.lastIndexOf('.') + 1).toLowerCase();
+  };
+
+  const getThumbnailExtension = (file: File): string => {
+    const name = file.name;
+    return name.substring(name.lastIndexOf('.') + 1).toLowerCase();
+  };
+
+  const handleUpload = async () => {
     if (!videoFile || !title || !category || !language) {
       toast({ title: 'Missing fields', description: 'Please fill in all required fields.', variant: 'destructive' });
       return;
     }
 
-    setUploadStatus('uploading');
-    setUploadProgress(0);
-
-    // Simulate upload progress
-    for (let i = 0; i <= 100; i += 2) {
-      await new Promise((resolve) => setTimeout(resolve, 50));
-      setUploadProgress(i);
-    }
-
-    setUploadStatus('processing');
-
-    // Simulate processing
-    await new Promise((resolve) => setTimeout(resolve, 1500));
-
-    setUploadStatus('success');
-    toast({ title: 'Upload complete!', description: 'Your video has been uploaded successfully.' });
-
-    // Reset after 2 seconds
-    setTimeout(() => {
-      navigate('/browse');
-    }, 2000);
+    await startUpload(
+      {
+        title,
+        description: description || undefined,
+        videoExt: getVideoExtension(videoFile),
+        thumbnailExt: thumbnailFile ? getThumbnailExtension(thumbnailFile) : undefined,
+      },
+      videoFile,
+      thumbnailFile
+    );
   };
 
+
+  const isIdle = step === 'idle';
+
   const getStatusMessage = () => {
-    switch (uploadStatus) {
-      case 'uploading':
-        return 'Uploading video...';
-      case 'processing':
-        return 'Processing video...';
-      case 'success':
-        return 'Upload successful!';
-      case 'error':
-        return 'Upload failed. Please try again.';
-      default:
-        return '';
+    switch (step) {
+      case 'initiating': return 'Preparing upload...';
+      case 'uploading': return 'Uploading to cloud...';
+      case 'completing': return 'Finalizing upload...';
+      case 'processing': return 'Video is being processed...';
+      case 'success': return 'Upload successful!';
+      case 'error': return error || 'Upload failed.';
+      default: return '';
     }
   };
 
@@ -142,7 +148,6 @@ const UploadPage: React.FC = () => {
                 <Film className="w-5 h-5 text-primary" />
                 Video File
               </h2>
-
               {!videoFile ? (
                 <div
                   onClick={() => videoInputRef.current?.click()}
@@ -163,19 +168,12 @@ const UploadPage: React.FC = () => {
                       <p className="text-sm text-muted-foreground">{formatFileSize(videoFile.size)}</p>
                     </div>
                   </div>
-                  <Button variant="ghost" size="icon" onClick={removeVideo} disabled={uploadStatus !== 'idle'}>
+                  <Button variant="ghost" size="icon" onClick={removeVideo} disabled={!isIdle}>
                     <X className="w-4 h-4" />
                   </Button>
                 </div>
               )}
-
-              <input
-                ref={videoInputRef}
-                type="file"
-                accept="video/*"
-                onChange={handleVideoSelect}
-                className="hidden"
-              />
+              <input ref={videoInputRef} type="file" accept="video/*" onChange={handleVideoSelect} className="hidden" />
             </div>
 
             {/* Thumbnail Upload Section */}
@@ -184,7 +182,6 @@ const UploadPage: React.FC = () => {
                 <Image className="w-5 h-5 text-primary" />
                 Thumbnail
               </h2>
-
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {!thumbnailPreview ? (
                   <div
@@ -204,7 +201,6 @@ const UploadPage: React.FC = () => {
                     </div>
                   </div>
                 )}
-
                 <div className="text-sm text-muted-foreground">
                   <p className="mb-2">Recommended:</p>
                   <ul className="list-disc list-inside space-y-1">
@@ -215,91 +211,43 @@ const UploadPage: React.FC = () => {
                   </ul>
                 </div>
               </div>
-
-              <input
-                ref={thumbnailInputRef}
-                type="file"
-                accept="image/*"
-                onChange={handleThumbnailSelect}
-                className="hidden"
-              />
+              <input ref={thumbnailInputRef} type="file" accept="image/*" onChange={handleThumbnailSelect} className="hidden" />
             </div>
 
             {/* Video Details Form */}
             <div className="glass-card rounded-xl p-6">
               <h2 className="text-lg font-semibold text-foreground mb-4">Video Details</h2>
-
               <div className="space-y-4">
                 <div className="space-y-2">
                   <Label htmlFor="title">Title *</Label>
-                  <Input
-                    id="title"
-                    placeholder="Enter video title"
-                    value={title}
-                    onChange={(e) => setTitle(e.target.value)}
-                    maxLength={100}
-                    disabled={uploadStatus !== 'idle'}
-                  />
+                  <Input id="title" placeholder="Enter video title" value={title} onChange={(e) => setTitle(e.target.value)} maxLength={100} disabled={!isIdle} />
                   <p className="text-xs text-muted-foreground text-right">{title.length}/100</p>
                 </div>
-
                 <div className="space-y-2">
                   <Label htmlFor="description">Description</Label>
-                  <Textarea
-                    id="description"
-                    placeholder="Tell viewers about your video"
-                    value={description}
-                    onChange={(e) => setDescription(e.target.value)}
-                    rows={4}
-                    maxLength={5000}
-                    disabled={uploadStatus !== 'idle'}
-                  />
+                  <Textarea id="description" placeholder="Tell viewers about your video" value={description} onChange={(e) => setDescription(e.target.value)} rows={4} maxLength={5000} disabled={!isIdle} />
                   <p className="text-xs text-muted-foreground text-right">{description.length}/5000</p>
                 </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label>Category *</Label>
-                    <Select value={category} onValueChange={setCategory} disabled={uploadStatus !== 'idle'}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select category" />
-                      </SelectTrigger>
+                    <Select value={category} onValueChange={setCategory} disabled={!isIdle}>
+                      <SelectTrigger><SelectValue placeholder="Select category" /></SelectTrigger>
                       <SelectContent>
                         {categories.filter((c) => c !== 'All').map((cat) => (
-                          <SelectItem key={cat} value={cat}>
-                            {cat}
-                          </SelectItem>
+                          <SelectItem key={cat} value={cat}>{cat}</SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
                   </div>
-
                   <div className="space-y-2">
                     <Label>Language *</Label>
-                    <Select value={language} onValueChange={setLanguage} disabled={uploadStatus !== 'idle'}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select language" />
-                      </SelectTrigger>
+                    <Select value={language} onValueChange={setLanguage} disabled={!isIdle}>
+                      <SelectTrigger><SelectValue placeholder="Select language" /></SelectTrigger>
                       <SelectContent>
                         {languages.filter((l) => l !== 'All').map((lang) => (
-                          <SelectItem key={lang} value={lang}>
-                            {lang}
-                          </SelectItem>
+                          <SelectItem key={lang} value={lang}>{lang}</SelectItem>
                         ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label>Type</Label>
-                    <Select value={videoType} onValueChange={(v) => setVideoType(v as typeof videoType)} disabled={uploadStatus !== 'idle'}>
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="movie">Movie</SelectItem>
-                        <SelectItem value="series">Series</SelectItem>
-                        <SelectItem value="short">Short</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
@@ -308,45 +256,38 @@ const UploadPage: React.FC = () => {
             </div>
 
             {/* Upload Progress */}
-            {uploadStatus !== 'idle' && (
+            {step !== 'idle' && (
               <div className="glass-card rounded-xl p-6">
                 <div className="flex items-center gap-3 mb-4">
-                  {uploadStatus === 'success' ? (
+                  {step === 'success' ? (
                     <CheckCircle className="w-6 h-6 text-green-500" />
-                  ) : uploadStatus === 'error' ? (
+                  ) : step === 'error' ? (
                     <AlertCircle className="w-6 h-6 text-destructive" />
                   ) : (
                     <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin" />
                   )}
                   <span className="text-foreground font-medium">{getStatusMessage()}</span>
                 </div>
-
-                {(uploadStatus === 'uploading' || uploadStatus === 'processing') && (
+                {(step === 'uploading' || step === 'initiating' || step === 'completing' || step === 'processing') && (
                   <div className="h-2 bg-secondary rounded-full overflow-hidden">
-                    <div 
-                      className="h-full bg-primary transition-all duration-300 ease-out"
-                      style={{ width: `${uploadStatus === 'processing' ? 100 : uploadProgress}%` }}
-                    />
+                    <div className="h-full bg-primary transition-all duration-300 ease-out" style={{ width: `${progress}%` }} />
                   </div>
                 )}
-
-                {uploadStatus === 'uploading' && (
-                  <p className="text-sm text-muted-foreground mt-2">{uploadProgress}% complete</p>
+                {step === 'uploading' && (
+                  <p className="text-sm text-muted-foreground mt-2">{progress}% complete</p>
                 )}
               </div>
             )}
 
             {/* Submit Button */}
             <div className="flex justify-end gap-4">
-              <Button variant="outline" onClick={() => navigate(-1)} disabled={uploadStatus !== 'idle'}>
-                Cancel
-              </Button>
+              <Button variant="outline" onClick={() => navigate(-1)} disabled={!isIdle}>Cancel</Button>
               <Button
-                onClick={simulateUpload}
-                disabled={!videoFile || !title || !category || !language || uploadStatus !== 'idle'}
+                onClick={handleUpload}
+                disabled={!videoFile || !title || !category || !language || !isIdle}
                 className="min-w-[140px]"
               >
-                {uploadStatus === 'idle' ? (
+                {isIdle ? (
                   <>
                     <UploadIcon className="w-4 h-4 mr-2" />
                     Upload Video
