@@ -1,4 +1,4 @@
-import { apiFetch, API_BASE_URL, apiHeaders } from './config';
+import { apiFetch, API_BASE_URL } from './config';
 import type {
   ApiVideo,
   InitiateUploadDto,
@@ -47,6 +47,14 @@ export const uploadFileToS3 = async (
     xhr.open('PUT', presignedUrl, true);
     xhr.setRequestHeader('Content-Type', file.type);
 
+    // Log upload details for debugging
+    console.log('🚀 Starting S3 upload:', {
+      fileName: file.name,
+      fileSize: file.size,
+      fileType: file.type,
+      url: presignedUrl.split('?')[0], // Log URL without query params
+    });
+
     xhr.upload.onprogress = (e) => {
       if (e.lengthComputable && onProgress) {
         onProgress(Math.round((e.loaded / e.total) * 100));
@@ -54,11 +62,35 @@ export const uploadFileToS3 = async (
     };
 
     xhr.onload = () => {
-      if (xhr.status >= 200 && xhr.status < 300) resolve();
-      else reject(new Error(`S3 upload failed: ${xhr.status}`));
+      console.log('📡 S3 Response:', {
+        status: xhr.status,
+        statusText: xhr.statusText,
+        responseHeaders: xhr.getAllResponseHeaders(),
+      });
+
+      if (xhr.status >= 200 && xhr.status < 300) {
+        console.log('✅ S3 upload successful');
+        resolve();
+      } else {
+        console.error('❌ S3 upload failed:', {
+          status: xhr.status,
+          statusText: xhr.statusText,
+          response: xhr.responseText,
+        });
+        reject(new Error(`S3 upload failed: ${xhr.status} ${xhr.statusText}`));
+      }
     };
 
-    xhr.onerror = () => reject(new Error('S3 upload network error'));
+    xhr.onerror = (e) => {
+      console.error('❌ S3 upload network error:', e);
+      console.error('XHR Error Details:', {
+        readyState: xhr.readyState,
+        status: xhr.status,
+        statusText: xhr.statusText,
+      });
+      reject(new Error('S3 upload network error - Check CORS configuration'));
+    };
+
     xhr.send(file);
   });
 };

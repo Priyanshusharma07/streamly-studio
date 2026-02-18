@@ -96,6 +96,29 @@ export interface AuthUser {
   avatar?: string;
 }
 
+// --- Password Management ---
+export interface ForgotPasswordDto {
+  email: string;
+}
+
+export interface ResetPasswordDto {
+  email: string;
+  token: string;
+  newPassword: string;
+}
+
+export interface ChangePasswordDto {
+  currentPassword: string;
+  newPassword: string;
+}
+
+// --- User Management ---
+export interface CreateUserDto {
+  name: string;
+  email: string;
+  password: string;
+}
+
 // --- Frontend-compatible Video type (for UI components) ---
 export interface FrontendVideo {
   id: string;
