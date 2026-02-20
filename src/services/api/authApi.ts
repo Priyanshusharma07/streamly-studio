@@ -26,7 +26,6 @@ export const loginUser = async (
     throw new Error('Token not found in login response');
   }
 
-  // 🔥 Normalize snake_case → camelCase
   return {
     user: response.user,
     accessToken: response.access_token,

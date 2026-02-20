@@ -1,8 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { Camera, Loader2 } from 'lucide-react';
 import { Layout } from '@/components/layout/Layout';
-import { VideoCard } from '@/components/video/VideoCard';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -10,6 +9,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
+import { useProfile, useChangePassword } from '@/hooks/useAuth';
 
 const Profile: React.FC = () => {
   const [searchParams] = useSearchParams();
@@ -17,11 +17,26 @@ const Profile: React.FC = () => {
   const { user, isAuthenticated, updateProfile, logout } = useAuth();
   const { toast } = useToast();
 
+  // Fetch fresh profile data from the API
+  const { data: freshProfile, isLoading: profileLoading } = useProfile(isAuthenticated);
+  const changePasswordMutation = useChangePassword();
+
   const [username, setUsername] = useState(user?.username || '');
   const [email, setEmail] = useState(user?.email || '');
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
   const [isSaving, setIsSaving] = useState(false);
 
   const activeTab = searchParams.get('tab') || 'profile';
+
+  // Sync form fields when fresh profile data arrives
+  useEffect(() => {
+    if (freshProfile) {
+      setUsername(freshProfile.username);
+      setEmail(freshProfile.email);
+      updateProfile({ username: freshProfile.username, email: freshProfile.email, avatar: freshProfile.avatar });
+    }
+  }, [freshProfile]);
 
   if (!isAuthenticated) {
     navigate('/login');
@@ -34,6 +49,21 @@ const Profile: React.FC = () => {
     updateProfile({ username, email });
     setIsSaving(false);
     toast({ title: 'Profile updated successfully!' });
+  };
+
+  const handleChangePassword = async () => {
+    if (!currentPassword || !newPassword) {
+      toast({ title: 'Missing fields', description: 'Please fill in both password fields.', variant: 'destructive' });
+      return;
+    }
+    try {
+      await changePasswordMutation.mutateAsync({ currentPassword, newPassword });
+      toast({ title: 'Password changed successfully!' });
+      setCurrentPassword('');
+      setNewPassword('');
+    } catch (err: any) {
+      toast({ title: 'Failed to change password', description: err.message, variant: 'destructive' });
+    }
   };
 
   const handleLogout = () => {
@@ -110,22 +140,38 @@ const Profile: React.FC = () => {
             {/* Settings Tab */}
             <TabsContent value="settings">
               <div className="glass-card rounded-xl p-6 space-y-6">
-                <h2 className="text-lg font-semibold text-foreground">Account Settings</h2>
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between p-4 bg-secondary/50 rounded-lg">
-                    <div>
-                      <p className="font-medium text-foreground">Notifications</p>
-                      <p className="text-sm text-muted-foreground">Manage your notification preferences</p>
-                    </div>
-                    <Button variant="outline">Manage</Button>
+                <h2 className="text-lg font-semibold text-foreground">Change Password</h2>
+                <div className="space-y-4 max-w-md">
+                  <div className="space-y-2">
+                    <Label htmlFor="current-password">Current Password</Label>
+                    <Input
+                      id="current-password"
+                      type="password"
+                      value={currentPassword}
+                      onChange={(e) => setCurrentPassword(e.target.value)}
+                      placeholder="Enter current password"
+                    />
                   </div>
-                  <div className="flex items-center justify-between p-4 bg-secondary/50 rounded-lg">
-                    <div>
-                      <p className="font-medium text-foreground">Privacy</p>
-                      <p className="text-sm text-muted-foreground">Control your privacy settings</p>
-                    </div>
-                    <Button variant="outline">Manage</Button>
+                  <div className="space-y-2">
+                    <Label htmlFor="new-password">New Password</Label>
+                    <Input
+                      id="new-password"
+                      type="password"
+                      value={newPassword}
+                      onChange={(e) => setNewPassword(e.target.value)}
+                      placeholder="Enter new password"
+                    />
                   </div>
+                  <Button
+                    onClick={handleChangePassword}
+                    disabled={changePasswordMutation.isPending}
+                  >
+                    {changePasswordMutation.isPending ? (
+                      <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Changing...</>
+                    ) : (
+                      'Change Password'
+                    )}
+                  </Button>
                 </div>
                 <div className="pt-6 border-t border-border">
                   <Button variant="destructive" onClick={handleLogout}>Sign Out</Button>

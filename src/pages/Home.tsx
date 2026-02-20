@@ -5,7 +5,7 @@ import { HeroBanner } from '@/components/video/HeroBanner';
 import { VideoCarousel } from '@/components/video/VideoCarousel';
 import { SkeletonHero, SkeletonCarousel } from '@/components/video/SkeletonCard';
 import { useTrendingVideos, useRecentVideos, useMovies } from '@/hooks/useVideos';
-import { mockVideos, liveStreams, featuredVideo } from '@/data/mockData';
+import { mockVideos, liveStreams } from '@/data/mockData';
 
 const Home: React.FC = () => {
   const navigate = useNavigate();
@@ -19,6 +19,9 @@ const Home: React.FC = () => {
   const trendingVideos = trending && trending.length > 0 ? trending : mockVideos.slice(0, 8);
   const recentVideos = recent && recent.length > 0 ? recent : [...mockVideos].reverse().slice(0, 8);
   const movieVideos = movies && movies.length > 0 ? movies : mockVideos.filter((v) => v.type === 'movie');
+
+  // Use first real trending video for the hero banner; fall back to mock
+  const featuredVideo = trendingVideos[0] ?? mockVideos[0];
 
   if (isLoading) {
     return (

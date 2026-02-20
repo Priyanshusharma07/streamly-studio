@@ -7,7 +7,7 @@ import {
   getMovies,
 } from '@/services/api/videoApi';
 import { mapApiVideoToFrontend } from '@/services/api/mappers';
-import type { VideoListParams, FrontendVideo } from '@/services/api/types';
+import type { VideoListParams } from '@/services/api/types';
 
 export const useVideos = (params?: VideoListParams) => {
   return useQuery({
@@ -25,6 +25,25 @@ export const useVideoById = (id: string | number | undefined) => {
     queryKey: ['video', id],
     queryFn: () => getVideoById(id!),
     enabled: !!id,
+    select: mapApiVideoToFrontend,
+  });
+};
+
+/**
+ * Polls GET /videos/:id every 5 seconds while status === 'processing'.
+ * Automatically stops polling once the video becomes 'ready' or 'failed'.
+ * Use this hook after an upload to track transcoding progress.
+ */
+export const useVideoStatus = (id: string | number | undefined) => {
+  return useQuery({
+    queryKey: ['video', id, 'status'],
+    queryFn: () => getVideoById(id!),
+    enabled: !!id,
+    // React Query v5 refetchInterval: pass a function that receives the query state
+    refetchInterval: (query) => {
+      const status = query.state.data?.status;
+      return status === 'processing' ? 5000 : false;
+    },
     select: mapApiVideoToFrontend,
   });
 };
