@@ -1,187 +1,131 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Eye, EyeOff, Loader2 } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Checkbox } from '@/components/ui/checkbox';
+import { Eye, EyeOff, Square } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 
 const Login: React.FC = () => {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
-  const [rememberMe, setRememberMe] = useState(false);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [errors, setErrors] = useState<{ email?: string; password?: string }>({});
-  
-  const { login } = useAuth();
-  const navigate = useNavigate();
+  const { login, isLoading } = useAuth();
   const { toast } = useToast();
+  const navigate = useNavigate();
 
-  const validateForm = () => {
-    const newErrors: { email?: string; password?: string } = {};
-    
-    if (!email) {
-      newErrors.email = 'Email is required';
-    } else if (!/\S+@\S+\.\S+/.test(email)) {
-      newErrors.email = 'Please enter a valid email';
-    }
-    
-    if (!password) {
-      newErrors.password = 'Password is required';
-    } else if (password.length < 6) {
-      newErrors.password = 'Password must be at least 6 characters';
-    }
-    
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
-  };
+  const [email, setEmail] = React.useState('');
+  const [password, setPassword] = React.useState('');
+  const [showPass, setShowPass] = React.useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    if (!validateForm()) return;
-    
-    setIsSubmitting(true);
-    const success = await login(email, password, rememberMe);
-    setIsSubmitting(false);
-    
-    if (success) {
-      toast({
-        title: 'Welcome back!',
-        description: 'You have successfully logged in.',
-      });
+    const ok = await login(email, password);
+    if (ok) {
       navigate('/');
     } else {
-      toast({
-        title: 'Login failed',
-        description: 'Please check your credentials and try again.',
-        variant: 'destructive',
-      });
+      toast({ title: 'Login failed', description: 'Invalid email or password.', variant: 'destructive' });
     }
   };
 
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center p-4">
-      {/* Background */}
-      <div className="fixed inset-0 z-0">
-        <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-background to-background" />
-      </div>
+    <div className="min-h-screen bg-background flex items-center justify-center px-4 relative overflow-hidden">
+      {/* Ambient glow blobs */}
+      <div className="absolute -top-40 -left-40 w-96 h-96 rounded-full opacity-20 pointer-events-none"
+        style={{ background: 'radial-gradient(circle, #7C3AED, transparent 70%)' }} />
+      <div className="absolute -bottom-40 -right-40 w-96 h-96 rounded-full opacity-20 pointer-events-none"
+        style={{ background: 'radial-gradient(circle, #00D4FF, transparent 70%)' }} />
 
-      <div className="relative z-10 w-full max-w-md">
+      <div className="relative w-full max-w-sm animate-scale-in">
         {/* Logo */}
-        <Link to="/" className="flex items-center justify-center gap-2 mb-8">
-          <div className="w-10 h-10 bg-primary rounded-lg flex items-center justify-center">
-            <span className="text-primary-foreground font-bold text-xl">S</span>
+        <div className="flex flex-col items-center mb-8">
+          <div
+            className="w-12 h-12 rounded-xl flex items-center justify-center mb-4 text-xl font-black"
+            style={{ background: 'linear-gradient(135deg, #F97316, #EA580C)', color: '#fff' }}
+          >
+            S
           </div>
-          <span className="text-2xl font-bold text-foreground">StreamVault</span>
-        </Link>
-
-        {/* Form Card */}
-        <div className="glass-card rounded-xl p-8">
-          <div className="text-center mb-8">
-            <h1 className="text-2xl font-bold text-foreground">Welcome back</h1>
-            <p className="text-muted-foreground mt-2">Sign in to your account</p>
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-bold tracking-widest uppercase" style={{ color: '#F97316' }}>□</span>
+            <span className="text-sm font-bold tracking-widest uppercase text-foreground">STREAMHUB</span>
           </div>
+        </div>
 
-          <form onSubmit={handleSubmit} className="space-y-6">
-            <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
-              <Input
-                id="email"
+        {/* Card */}
+        <div className="glass-panel rounded-2xl p-8">
+          <h1 className="text-2xl font-bold text-foreground text-center mb-1.5">Welcome Back</h1>
+          <p className="text-sm text-muted-foreground text-center mb-7">Experience cinema in high definition</p>
+
+          <form onSubmit={handleSubmit} className="space-y-4">
+            {/* Email */}
+            <div>
+              <label className="block text-xs font-medium text-foreground mb-1.5">Email Address</label>
+              <input
                 type="email"
-                placeholder="you@example.com"
+                required
+                placeholder="name@example.com"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className={errors.email ? 'border-destructive' : ''}
-                aria-describedby={errors.email ? 'email-error' : undefined}
+                className="w-full bg-white/[.05] border border-white/[.1] rounded-lg px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/30 transition-all"
               />
-              {errors.email && (
-                <p id="email-error" className="text-sm text-destructive">
-                  {errors.email}
-                </p>
-              )}
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
+            {/* Password */}
+            <div>
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="text-xs font-medium text-foreground">Password</label>
+                <Link to="/forgot-password" className="text-xs transition-colors hover:underline" style={{ color: '#00D4FF' }}>
+                  Forgot Password?
+                </Link>
+              </div>
               <div className="relative">
-                <Input
-                  id="password"
-                  type={showPassword ? 'text' : 'password'}
+                <input
+                  type={showPass ? 'text' : 'password'}
+                  required
                   placeholder="••••••••"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className={errors.password ? 'border-destructive pr-10' : 'pr-10'}
-                  aria-describedby={errors.password ? 'password-error' : undefined}
+                  className="w-full bg-white/[.05] border border-white/[.1] rounded-lg px-4 py-3 pr-11 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/30 transition-all"
                 />
-                <Button
+                <button
                   type="button"
-                  variant="ghost"
-                  size="icon"
-                  className="absolute right-0 top-0 h-full px-3 hover:bg-transparent"
-                  onClick={() => setShowPassword(!showPassword)}
-                  aria-label={showPassword ? 'Hide password' : 'Show password'}
+                  onClick={() => setShowPass(!showPass)}
+                  className="absolute right-3.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
                 >
-                  {showPassword ? (
-                    <EyeOff className="w-4 h-4 text-muted-foreground" />
-                  ) : (
-                    <Eye className="w-4 h-4 text-muted-foreground" />
-                  )}
-                </Button>
+                  {showPass ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
               </div>
-              {errors.password && (
-                <p id="password-error" className="text-sm text-destructive">
-                  {errors.password}
-                </p>
-              )}
             </div>
 
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-2">
-                <Checkbox
-                  id="remember"
-                  checked={rememberMe}
-                  onCheckedChange={(checked) => setRememberMe(checked as boolean)}
-                />
-                <Label htmlFor="remember" className="text-sm cursor-pointer">
-                  Remember me
-                </Label>
-              </div>
-              <Link
-                to="/forgot-password"
-                className="text-sm text-primary hover:text-primary/80 transition-colors"
-              >
-                Forgot password?
-              </Link>
-            </div>
-
-            <Button type="submit" className="w-full" size="lg" disabled={isSubmitting}>
-              {isSubmitting ? (
-                <>
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  Signing in...
-                </>
-              ) : (
-                'Sign In'
-              )}
-            </Button>
+            {/* Sign In */}
+            <button
+              type="submit"
+              disabled={isLoading}
+              className="btn-orange w-full py-3 rounded-lg text-sm font-bold uppercase tracking-wider disabled:opacity-60 mt-2"
+            >
+              {isLoading ? 'Signing in…' : 'Sign In'}
+            </button>
           </form>
 
-          <p className="text-center text-muted-foreground mt-6">
+          {/* Social */}
+          <div className="flex items-center gap-3 my-6">
+            <div className="flex-1 h-px bg-white/[.08]" />
+            <span className="text-[10px] text-muted-foreground uppercase tracking-wider">or continue with</span>
+            <div className="flex-1 h-px bg-white/[.08]" />
+          </div>
+          <div className="grid grid-cols-3 gap-3">
+            {['Apple', 'Google', 'Facebook'].map((p) => (
+              <button
+                key={p}
+                className="flex items-center justify-center py-2.5 rounded-lg text-xs font-medium text-muted-foreground hover:text-foreground transition-all border border-white/[.08] hover:border-white/[.16] hover:bg-white/[.04]"
+              >
+                {p[0]}
+              </button>
+            ))}
+          </div>
+
+          <p className="text-center text-xs text-muted-foreground mt-6">
             Don't have an account?{' '}
-            <Link to="/signup" className="text-primary hover:text-primary/80 font-medium transition-colors">
-              Sign up
+            <Link to="/signup" className="font-semibold hover:underline" style={{ color: '#00D4FF' }}>
+              Sign Up
             </Link>
           </p>
         </div>
-
-        {/* Demo credentials */}
-        <p className="text-center text-xs text-muted-foreground mt-4">
-          Demo: Use any email and password (min 6 chars)
-        </p>
       </div>
     </div>
   );

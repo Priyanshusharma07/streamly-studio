@@ -1,273 +1,197 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams } from 'react-router-dom';
 import {
-  Play,
-  Pause,
-  Volume2,
-  VolumeX,
-  Maximize,
-  Settings,
-  Users,
-  Send,
-  Heart,
-  ChevronLeft,
+  Users, Send, DollarSign, ChevronDown,
+  AlertCircle, Play, Smile,
 } from 'lucide-react';
 import { Layout } from '@/components/layout/Layout';
-import { VideoCard } from '@/components/video/VideoCard';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import { liveStreams, mockChatMessages, Video } from '@/data/mockData';
-import { useAuth } from '@/contexts/AuthContext';
-import { useToast } from '@/hooks/use-toast';
+import { liveStreams, mockChatMessages } from '@/data/mockData';
 import { cn } from '@/lib/utils';
 
-const LivePage: React.FC = () => {
-  const { id } = useParams();
-  const { isAuthenticated, user } = useAuth();
-  const { toast } = useToast();
+const CHAT_MOCK = [
+  { id: '1', user: 'CyberSamurai', role: '', message: 'The lighting in this scene is absolutely insane! 🔥', donation: false },
+  { id: '2', user: 'NeonKnight', role: 'MOD', message: 'Please keep the chat respectful everyone! 🙏', donation: false },
+  { id: '3', user: 'RetroWave17', role: '', message: '🎶🎶🎶 LOVE THE VIBES!', donation: false, liked: true },
+  { id: '4', user: 'GoldGamer', role: '', message: 'Just donated $50! Keep it up! 💎', donation: true },
+  { id: '5', user: 'StreamFan99', role: '', message: 'First time watching – already subscribed 🚀', donation: false },
+  { id: '6', user: 'TechWizard', role: '', message: 'This quality is unreal for a live stream', donation: false },
+];
 
-  const [stream, setStream] = useState<Video | null>(null);
-  const [isPlaying, setIsPlaying] = useState(true);
-  const [isMuted, setIsMuted] = useState(false);
-  const [chatMessage, setChatMessage] = useState('');
-  const [messages, setMessages] = useState(mockChatMessages);
-  const [showControls, setShowControls] = useState(true);
-
-  const chatEndRef = useRef<HTMLDivElement>(null);
-  const controlsTimeoutRef = useRef<NodeJS.Timeout>();
-
-  useEffect(() => {
-    if (id) {
-      const foundStream = liveStreams.find((s) => s.id === id);
-      setStream(foundStream || liveStreams[0]);
-    } else {
-      setStream(liveStreams[0]);
-    }
-  }, [id]);
+const Live: React.FC = () => {
+  const { id } = useParams<{ id: string }>();
+  const stream = (liveStreams.find((l) => l.id === id) ?? liveStreams[0]);
+  const [message, setMessage] = useState('');
+  const [chatSlowMode, setChatSlowMode] = useState(true);
+  const chatRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
-
-  // Simulate incoming chat messages
-  useEffect(() => {
-    const interval = setInterval(() => {
-      const randomMessages = [
-        'Wow this is amazing! 🔥',
-        'Great quality!',
-        'Hello from Brazil! 🇧🇷',
-        'Love this stream',
-        'GG!',
-        '❤️❤️❤️',
-        'First time here!',
-      ];
-      const randomUsers = ['StreamFan', 'Viewer', 'User', 'Guest', 'Watcher'];
-
-      const newMessage = {
-        id: Date.now().toString(),
-        user: `${randomUsers[Math.floor(Math.random() * randomUsers.length)]}${Math.floor(Math.random() * 1000)}`,
-        message: randomMessages[Math.floor(Math.random() * randomMessages.length)],
-        timestamp: 'now',
-      };
-
-      setMessages((prev) => [...prev.slice(-20), newMessage]);
-    }, 5000);
-
-    return () => clearInterval(interval);
+    chatRef.current?.scrollTo({ top: chatRef.current.scrollHeight, behavior: 'smooth' });
   }, []);
 
-  const handleSendMessage = (e: React.FormEvent) => {
+  const sendMessage = (e: React.FormEvent) => {
     e.preventDefault();
-
-    if (!isAuthenticated) {
-      toast({
-        title: 'Sign in required',
-        description: 'Please sign in to chat.',
-        variant: 'destructive',
-      });
-      return;
-    }
-
-    if (!chatMessage.trim()) return;
-
-    const newMessage = {
-      id: Date.now().toString(),
-      user: user?.username || 'You',
-      message: chatMessage,
-      timestamp: 'now',
-    };
-
-    setMessages((prev) => [...prev, newMessage]);
-    setChatMessage('');
+    setMessage('');
   };
-
-  const handleMouseMove = () => {
-    setShowControls(true);
-    if (controlsTimeoutRef.current) {
-      clearTimeout(controlsTimeoutRef.current);
-    }
-    controlsTimeoutRef.current = setTimeout(() => {
-      if (isPlaying) {
-        setShowControls(false);
-      }
-    }, 3000);
-  };
-
-  const otherStreams = liveStreams.filter((s) => s.id !== stream?.id);
-
-  if (!stream) {
-    return (
-      <Layout>
-        <div className="container mx-auto px-4 py-8">
-          <p className="text-muted-foreground">Loading...</p>
-        </div>
-      </Layout>
-    );
-  }
 
   return (
     <Layout>
-      <div className="container mx-auto px-4 py-6">
-        <Button variant="ghost" asChild className="mb-4">
-          <Link to="/" className="flex items-center gap-2">
-            <ChevronLeft className="w-4 h-4" />
-            Back
-          </Link>
-        </Button>
-
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-          {/* Video Player */}
-          <div className="lg:col-span-3">
-            <div
-              className="relative aspect-video bg-black rounded-xl overflow-hidden"
-              onMouseMove={handleMouseMove}
-              onMouseLeave={() => isPlaying && setShowControls(false)}
-            >
-              <img
-                src={stream.thumbnail}
-                alt={stream.title}
-                className="w-full h-full object-cover"
-              />
-
-              {/* Live Badge */}
-              <div className="absolute top-4 left-4 flex items-center gap-3">
-                <span className="live-badge">Live</span>
-                <span className="flex items-center gap-1 bg-black/60 text-white px-3 py-1 rounded-full text-sm">
-                  <Users className="w-4 h-4" />
-                  {stream.viewerCount?.toLocaleString()} watching
-                </span>
-              </div>
-
-              {/* Controls */}
+      <div className="flex flex-col lg:flex-row h-full min-h-0 overflow-hidden">
+        {/* ── Left: Player + Info ─────────────────────────────────────────── */}
+        <div className="flex-1 min-w-0 overflow-y-auto">
+          {/* Player */}
+          <div className="relative aspect-video bg-black/90 flex items-center justify-center group cursor-pointer">
+            <img
+              src={stream.thumbnail}
+              alt={stream.title}
+              className="w-full h-full object-cover opacity-60"
+            />
+            {/* Placeholder play */}
+            <div className="absolute inset-0 flex items-center justify-center">
               <div
-                className={cn(
-                  'absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black/90 to-transparent transition-opacity',
-                  showControls ? 'opacity-100' : 'opacity-0'
-                )}
+                className="w-20 h-20 rounded-full flex items-center justify-center"
+                style={{ background: 'hsl(220 14% 18% / .8)', border: '1px solid hsl(220 14% 28%)' }}
               >
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-4">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => setIsPlaying(!isPlaying)}
-                      className="text-white hover:bg-white/20"
-                    >
-                      {isPlaying ? <Pause className="w-5 h-5" /> : <Play className="w-5 h-5" />}
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => setIsMuted(!isMuted)}
-                      className="text-white hover:bg-white/20"
-                    >
-                      {isMuted ? <VolumeX className="w-5 h-5" /> : <Volume2 className="w-5 h-5" />}
-                    </Button>
-                    <span className="text-white text-sm">LIVE</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="text-white hover:bg-white/20"
-                    >
-                      <Settings className="w-5 h-5" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="text-white hover:bg-white/20"
-                    >
-                      <Maximize className="w-5 h-5" />
-                    </Button>
-                  </div>
-                </div>
+                <Play className="w-8 h-8 text-white fill-white ml-1" />
               </div>
             </div>
-
-            {/* Stream Info */}
-            <div className="mt-6">
-              <h1 className="text-2xl font-bold text-foreground">{stream.title}</h1>
-              <p className="text-muted-foreground mt-2">{stream.description}</p>
-
-              <div className="flex items-center gap-4 mt-4">
-                <Button variant="secondary" className="gap-2">
-                  <Heart className="w-4 h-4" />
-                  Follow
-                </Button>
-              </div>
+            {/* LIVE overlay */}
+            <div className="absolute top-4 left-4 flex items-center gap-3">
+              <span className="live-badge text-xs">Live</span>
+              <span className="bg-black/70 text-white text-xs px-2.5 py-1 rounded-full flex items-center gap-1.5 font-medium">
+                <Users className="w-3 h-3" />
+                {(stream.viewerCount ?? 28400).toLocaleString()} viewers
+              </span>
             </div>
-
-            {/* Other Live Streams */}
-            {otherStreams.length > 0 && (
-              <div className="mt-8">
-                <h2 className="text-lg font-semibold text-foreground mb-4">More Live Streams</h2>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  {otherStreams.map((s) => (
-                    <VideoCard key={s.id} video={s} />
-                  ))}
-                </div>
-              </div>
-            )}
           </div>
 
-          {/* Live Chat */}
-          <div className="lg:col-span-1">
-            <div className="glass-card rounded-xl overflow-hidden h-[600px] flex flex-col">
-              <div className="p-4 border-b border-border">
-                <h2 className="font-semibold text-foreground">Live Chat</h2>
+          {/* Video info */}
+          <div className="p-5">
+            <h1 className="text-lg font-bold text-foreground leading-snug mb-2">{stream.title}</h1>
+            <div className="flex flex-wrap items-center gap-2 mb-4 text-sm text-muted-foreground">
+              <span>{stream.views}</span>
+              <span className="text-muted-foreground/40">•</span>
+              <span>Streamed 2 hours ago</span>
+              <span className="tag-pill">{stream.category}</span>
+            </div>
+
+            {/* Creator row */}
+            <div className="flex items-center gap-3 p-4 rounded-xl bg-secondary/30">
+              <div
+                className="w-11 h-11 rounded-full flex-shrink-0 flex items-center justify-center font-bold text-sm"
+                style={{ background: 'var(--gradient-cyan-purple)', color: 'hsl(220 20% 6%)' }}
+              >
+                N
               </div>
-
-              {/* Messages */}
-              <ScrollArea className="flex-1 p-4">
-                <div className="space-y-3">
-                  {messages.map((msg) => (
-                    <div key={msg.id} className="animate-fade-in">
-                      <span className="font-medium text-primary">{msg.user}</span>
-                      <span className="text-muted-foreground">: </span>
-                      <span className="text-foreground">{msg.message}</span>
-                    </div>
-                  ))}
-                  <div ref={chatEndRef} />
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-1.5">
+                  <span className="text-sm font-semibold text-foreground">NeonSpeccter</span>
+                  <span className="w-4 h-4 rounded-full flex items-center justify-center" style={{ background: '#00D4FF' }}>
+                    <span className="text-[8px] text-black font-bold">✓</span>
+                  </span>
                 </div>
-              </ScrollArea>
+                <p className="text-xs text-muted-foreground">2.4M subscribers</p>
+              </div>
+              <div className="flex items-center gap-2">
+                <button className="btn-cyan py-2 px-4 text-xs rounded-lg">Subscribe</button>
+                <button className="btn-outline-cyan py-2 px-3 text-xs rounded-lg gap-1.5">
+                  <DollarSign className="w-3 h-3" /> Tip Creator
+                </button>
+              </div>
+            </div>
 
-              {/* Chat Input */}
-              <form onSubmit={handleSendMessage} className="p-4 border-t border-border">
-                <div className="flex gap-2">
-                  <Input
-                    placeholder={isAuthenticated ? 'Send a message...' : 'Sign in to chat'}
-                    value={chatMessage}
-                    onChange={(e) => setChatMessage(e.target.value)}
-                    disabled={!isAuthenticated}
-                    className="flex-1"
-                  />
-                  <Button type="submit" size="icon" disabled={!isAuthenticated}>
-                    <Send className="w-4 h-4" />
-                  </Button>
+            {/* Description */}
+            <div className="mt-4 p-4 rounded-xl bg-secondary/20">
+              <p className="text-sm text-muted-foreground leading-relaxed line-clamp-3">
+                {stream.description}
+              </p>
+              <button className="text-xs mt-2 font-medium" style={{ color: '#00D4FF' }}>Show more</button>
+            </div>
+          </div>
+        </div>
+
+        {/* ── Right: Live Chat ─────────────────────────────────────────────── */}
+        <div
+          className="lg:w-80 xl:w-96 flex-shrink-0 flex flex-col border-l border-white/[.05]"
+          style={{ background: 'hsl(220 20% 7%)' }}
+        >
+          {/* Chat header */}
+          <div className="flex items-center justify-between px-4 py-3.5 border-b border-white/[.05]">
+            <span className="text-sm font-semibold text-foreground">Live Chat</span>
+            <div className="flex items-center gap-1.5">
+              <span className="text-xs text-muted-foreground font-medium">
+                {(28400).toLocaleString()} <span style={{ color: '#00D4FF' }}>VIEWERS</span>
+              </span>
+            </div>
+          </div>
+
+          {/* Messages */}
+          <div ref={chatRef} className="flex-1 overflow-y-auto px-3 py-3 space-y-2 min-h-0">
+            {CHAT_MOCK.map((m) => (
+              <div key={m.id} className={cn(m.donation ? 'chat-msg-donation' : 'chat-msg')}>
+                <div className="flex items-start gap-2">
+                  <div
+                    className="w-6 h-6 rounded-full flex-shrink-0 flex items-center justify-center text-[9px] font-bold mt-0.5"
+                    style={{ background: 'var(--gradient-cyan-purple)', color: 'hsl(220 20% 6%)' }}
+                  >
+                    {m.user[0]}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <span className="text-xs font-semibold text-foreground mr-1.5">{m.user}</span>
+                    {m.role && (
+                      <span className="text-[9px] font-bold uppercase px-1 py-0.5 rounded mr-1.5"
+                        style={{ background: '#00D4FF', color: 'hsl(220 20% 6%)' }}>
+                        {m.role}
+                      </span>
+                    )}
+                    <span className="text-xs text-muted-foreground leading-relaxed">{m.message}</span>
+                    {m.liked && (
+                      <p className="text-[10px] mt-1 font-medium uppercase tracking-wider" style={{ color: '#00D4FF' }}>
+                        STREAMER LIKED THIS MESSAGE
+                      </p>
+                    )}
+                  </div>
                 </div>
-              </form>
+              </div>
+            ))}
+          </div>
+
+          {/* Chat input */}
+          <div className="border-t border-white/[.05] p-3">
+            <form onSubmit={sendMessage} className="flex items-center gap-2">
+              <div
+                className="w-7 h-7 rounded-full flex-shrink-0 flex items-center justify-center text-xs font-bold"
+                style={{ background: 'var(--gradient-cyan-purple)', color: 'hsl(220 20% 6%)' }}
+              >
+                A
+              </div>
+              <div className="flex-1 relative">
+                <input
+                  value={message}
+                  onChange={(e) => setMessage(e.target.value)}
+                  placeholder="Send a message..."
+                  className="w-full bg-secondary/50 border border-border/50 rounded-lg px-3 py-2 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary/50 transition-all pr-8"
+                />
+                <button type="button" className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
+                  <Smile className="w-3.5 h-3.5" />
+                </button>
+              </div>
+              <button
+                type="submit"
+                className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 transition-colors hover:opacity-90"
+                style={{ background: 'var(--gradient-cyan-purple)' }}
+              >
+                <Send className="w-3.5 h-3.5 text-white" />
+              </button>
+            </form>
+            <div className="flex items-center justify-between mt-2 text-[10px] text-muted-foreground">
+              <button
+                onClick={() => setChatSlowMode(!chatSlowMode)}
+                className={cn('hover:text-foreground transition-colors', chatSlowMode && 'text-primary')}
+              >
+                Slow Mode: {chatSlowMode ? 'On' : 'Off'}
+              </button>
+              <button className="hover:text-foreground transition-colors">Chat Rules</button>
+              <button className="hover:text-foreground transition-colors">Full View</button>
             </div>
           </div>
         </div>
@@ -276,4 +200,4 @@ const LivePage: React.FC = () => {
   );
 };
 
-export default LivePage;
+export default Live;

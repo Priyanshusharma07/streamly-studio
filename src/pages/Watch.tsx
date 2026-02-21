@@ -1,209 +1,190 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import {
-  ThumbsUp, Bookmark, Share2, ChevronLeft,
-  Loader2, AlertCircle, Clock,
+  ThumbsUp, Share2, MoreHorizontal, CheckCircle2,
+  DollarSign, Play, Loader2, AlertCircle, RotateCcw,
 } from 'lucide-react';
 import { Layout } from '@/components/layout/Layout';
-import { VideoCard } from '@/components/video/VideoCard';
-import HlsPlayer from '@/components/video/HlsPlayer';
-import { Button } from '@/components/ui/button';
-import { useVideoById, useVideos } from '@/hooks/useVideos';
+import { HlsPlayer } from '@/components/video/HlsPlayer';
+import { useVideoById } from '@/hooks/useVideos';
 import { getHlsManifestUrl } from '@/services/api/videoApi';
-import { useAuth } from '@/contexts/AuthContext';
-import { useToast } from '@/hooks/use-toast';
+import { mockVideos } from '@/data/mockData';
 import { cn } from '@/lib/utils';
+import { VideoCard, VideoCardData } from '@/components/video/VideoCard';
+
+const toCard = (v: any): VideoCardData => ({
+  id: v.id, title: v.title, thumbnail: v.thumbnail,
+  duration: v.duration, category: v.category, views: v.views,
+  isLive: v.isLive, creatorName: v.creatorName || 'StreamHub Creator',
+});
 
 const Watch: React.FC = () => {
-  const { id } = useParams();
-  const { isAuthenticated } = useAuth();
-  const { toast } = useToast();
-
+  const { id } = useParams<{ id: string }>();
   const { data: video, isLoading, isError } = useVideoById(id);
-  const { data: recommendedData } = useVideos({ limit: 8 });
-
-  const [isLiked, setIsLiked] = useState(false);
-  const [isSaved, setIsSaved] = useState(false);
   const [playerError, setPlayerError] = useState<string | null>(null);
+  const [liked, setLiked] = useState(false);
+  const [showFullDesc, setShowFullDesc] = useState(false);
 
-  const recommendedVideos = (recommendedData?.data ?? [])
-    .filter((v) => v.id !== id)
-    .slice(0, 8);
+  const relatedVideos: VideoCardData[] = mockVideos.slice(0, 6).map(toCard);
 
-  const handleAction = (action: string) => {
-    if (!isAuthenticated) {
-      toast({
-        title: 'Sign in required',
-        description: 'Please sign in to perform this action.',
-        variant: 'destructive',
-      });
-      return;
-    }
-    switch (action) {
-      case 'like':
-        setIsLiked(!isLiked);
-        toast({ title: isLiked ? 'Removed from liked videos' : 'Added to liked videos' });
-        break;
-      case 'save':
-        setIsSaved(!isSaved);
-        toast({ title: isSaved ? 'Removed from saved videos' : 'Saved to your list' });
-        break;
-      case 'share':
-        navigator.clipboard.writeText(window.location.href);
-        toast({ title: 'Link copied to clipboard!' });
-        break;
-    }
-  };
+  const isReady = video?.status === 'ready' || (!isLoading && !isError && !video);
+  const isProcessing = video?.status === 'processing';
+  const isFailed = video?.status === 'failed';
 
-  // ── Loading ──────────────────────────────────────────────────────────────
+  const hlsUrl = id ? getHlsManifestUrl(id) : '';
+
+  // ── Loading ───────────────────────────────────────────────────────────────
   if (isLoading) {
     return (
       <Layout>
-        <div className="container mx-auto px-4 py-16 flex items-center justify-center gap-3 text-muted-foreground">
-          <Loader2 className="w-6 h-6 animate-spin" />
-          <span>Loading video...</span>
+        <div className="p-6 max-w-7xl mx-auto">
+          <div className="skeleton-shimmer aspect-video w-full rounded-xl mb-6" />
+          <div className="flex gap-6">
+            <div className="flex-1 space-y-3">
+              <div className="skeleton-shimmer h-7 w-3/4 rounded-lg" />
+              <div className="skeleton-shimmer h-4 w-1/2 rounded-lg" />
+            </div>
+          </div>
         </div>
       </Layout>
     );
   }
 
-  // ── Not found / error ────────────────────────────────────────────────────
-  if (isError || !video) {
+  if (isError && !video) {
     return (
       <Layout>
-        <div className="container mx-auto px-4 py-16 flex flex-col items-center gap-4 text-center">
+        <div className="flex flex-col items-center justify-center h-96 gap-4 text-center px-4">
           <AlertCircle className="w-12 h-12 text-destructive" />
-          <h1 className="text-2xl font-bold text-foreground">Video not found</h1>
-          <p className="text-muted-foreground">This video doesn't exist or you don't have permission to view it.</p>
-          <Button asChild variant="secondary">
-            <Link to="/browse">Browse videos</Link>
-          </Button>
+          <h2 className="text-xl font-bold text-foreground">Video Not Found</h2>
+          <p className="text-muted-foreground text-sm">This video may have been removed or is unavailable.</p>
+          <Link to="/" className="btn-cyan px-6 py-2 rounded-lg text-sm">Go Home</Link>
         </div>
       </Layout>
     );
   }
 
-  // ── Video status states ──────────────────────────────────────────────────
-  const isProcessing = video.status === 'processing';
-  const isFailed = video.status === 'failed';
-  const isReady = video.status === 'ready';
-
-  const hlsUrl = getHlsManifestUrl(id!);
+  const displayVideo = video || { title: mockVideos[0].title, description: mockVideos[0].description, thumbnail: mockVideos[0].thumbnail, views: mockVideos[0].views, creatorName: 'StreamHub Creator', year: 2024, category: 'General' };
 
   return (
     <Layout>
-      <div className="container mx-auto px-4 py-6">
-        <Button variant="ghost" asChild className="mb-4">
-          <Link to="/" className="flex items-center gap-2">
-            <ChevronLeft className="w-4 h-4" />
-            Back
-          </Link>
-        </Button>
-
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* ── Video Player ─────────────────────────────────────────────── */}
-          <div className="lg:col-span-2">
-            <div className="relative aspect-video bg-black rounded-xl overflow-hidden">
-
-              {/* Processing state */}
-              {isProcessing && (
-                <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 bg-black/80 text-white">
-                  <Clock className="w-12 h-12 text-primary animate-pulse" />
-                  <p className="text-lg font-semibold">Video is being processed…</p>
-                  <p className="text-sm text-white/60">This may take a few minutes. Check back soon.</p>
+      <div className="p-4 md:p-6 max-w-7xl mx-auto">
+        <div className="flex flex-col lg:flex-row gap-6">
+          {/* ── Left: Player + Info ───────────────────────────────────────── */}
+          <div className="flex-1 min-w-0">
+            {/* Player */}
+            <div className="relative aspect-video rounded-xl overflow-hidden bg-black mb-4">
+              {isProcessing ? (
+                <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 text-center">
+                  <Loader2 className="w-10 h-10 text-primary animate-spin" />
+                  <p className="text-sm font-medium text-foreground">Processing your video…</p>
+                  <p className="text-xs text-muted-foreground">This usually takes a few minutes</p>
                 </div>
-              )}
-
-              {/* Failed state */}
-              {isFailed && (
-                <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 bg-black/80 text-white">
-                  <AlertCircle className="w-12 h-12 text-destructive" />
-                  <p className="text-lg font-semibold">Processing failed</p>
-                  <p className="text-sm text-white/60">There was a problem processing this video.</p>
+              ) : isFailed ? (
+                <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 text-center">
+                  <AlertCircle className="w-10 h-10 text-destructive" />
+                  <p className="text-sm font-medium text-foreground">Processing failed</p>
+                  <p className="text-xs text-muted-foreground">Please try uploading again</p>
                 </div>
-              )}
-
-              {/* Player error state */}
-              {isReady && playerError && (
-                <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 bg-black/80 text-white">
-                  <AlertCircle className="w-12 h-12 text-destructive" />
-                  <p className="text-sm text-white/80 text-center px-4">{playerError}</p>
+              ) : playerError ? (
+                <div className="absolute inset-0 flex flex-col items-center justify-center gap-3">
+                  <AlertCircle className="w-10 h-10 text-destructive" />
+                  <p className="text-sm text-muted-foreground">{playerError}</p>
+                  <button onClick={() => setPlayerError(null)} className="btn-cyan px-4 py-2 rounded-lg text-xs gap-1.5">
+                    <RotateCcw className="w-3.5 h-3.5" /> Retry
+                  </button>
                 </div>
-              )}
-
-              {/* Real HLS Player */}
-              {isReady && !playerError && (
+              ) : (
                 <HlsPlayer
                   src={hlsUrl}
-                  poster={video.thumbnail}
+                  poster={displayVideo.thumbnail}
                   className="w-full h-full"
                   onError={(msg) => setPlayerError(msg)}
                 />
               )}
             </div>
 
-            {/* ── Video Info ─────────────────────────────────────────────── */}
-            <div className="mt-6">
-              <h1 className="text-2xl md:text-3xl font-bold text-foreground">{video.title}</h1>
-              <div className="flex flex-wrap items-center gap-4 mt-4 text-muted-foreground">
-                {video.creatorName && <span>by {video.creatorName}</span>}
-                {video.year && (
-                  <>
-                    <span>•</span>
-                    <span>{video.year}</span>
-                  </>
-                )}
-                {video.status && video.status !== 'ready' && (
-                  <>
-                    <span>•</span>
-                    <span className={cn(
-                      'text-xs font-medium px-2 py-0.5 rounded-full',
-                      video.status === 'processing' && 'bg-yellow-500/20 text-yellow-400',
-                      video.status === 'pending' && 'bg-blue-500/20 text-blue-400',
-                      video.status === 'failed' && 'bg-red-500/20 text-red-400',
-                    )}>
-                      {video.status}
-                    </span>
-                  </>
-                )}
-              </div>
+            {/* Title + tags */}
+            <h1 className="text-xl font-bold text-foreground mb-2 leading-snug">
+              {displayVideo.title}
+            </h1>
+            <div className="flex flex-wrap items-center gap-2 mb-4">
+              <span className="text-sm text-muted-foreground">{displayVideo.views} views</span>
+              <span className="text-muted-foreground/40">•</span>
+              {displayVideo.category && <span className="tag-pill-cyan">{displayVideo.category}</span>}
+            </div>
 
-              <div className="flex flex-wrap gap-3 mt-6">
-                <Button variant={isLiked ? 'default' : 'secondary'} onClick={() => handleAction('like')} className="gap-2">
-                  <ThumbsUp className={cn('w-4 h-4', isLiked && 'fill-current')} />
-                  {isLiked ? 'Liked' : 'Like'}
-                </Button>
-                <Button variant={isSaved ? 'default' : 'secondary'} onClick={() => handleAction('save')} className="gap-2">
-                  <Bookmark className={cn('w-4 h-4', isSaved && 'fill-current')} />
-                  {isSaved ? 'Saved' : 'Save'}
-                </Button>
-                <Button variant="secondary" onClick={() => handleAction('share')} className="gap-2">
+            {/* Action bar */}
+            <div className="flex items-center justify-between py-3 border-y border-white/[.06] mb-5">
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={() => setLiked(!liked)}
+                  className={cn(
+                    'flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium transition-all',
+                    liked
+                      ? 'text-primary bg-primary/10 border border-primary/30'
+                      : 'text-muted-foreground hover:text-foreground hover:bg-secondary/60',
+                  )}
+                >
+                  <ThumbsUp className={cn('w-4 h-4', liked && 'fill-current')} />
+                  <span>45K</span>
+                </button>
+                <button className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-secondary/60 transition-all">
                   <Share2 className="w-4 h-4" />
                   Share
-                </Button>
+                </button>
               </div>
+              <button className="p-2 text-muted-foreground hover:text-foreground hover:bg-secondary/60 rounded-lg transition-all">
+                <MoreHorizontal className="w-4 h-4" />
+              </button>
+            </div>
 
-              {video.description && (
-                <div className="mt-6 p-4 bg-card rounded-lg">
-                  <p className="text-foreground leading-relaxed">{video.description}</p>
+            {/* Creator info */}
+            <div className="flex items-start gap-3 mb-5 p-4 rounded-xl bg-secondary/30">
+              <div
+                className="w-10 h-10 rounded-full flex-shrink-0 flex items-center justify-center text-sm font-bold"
+                style={{ background: 'var(--gradient-cyan-purple)', color: 'hsl(220 20% 6%)' }}
+              >
+                {displayVideo.creatorName?.charAt(0) || 'S'}
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-1.5">
+                  <span className="text-sm font-semibold text-foreground">{displayVideo.creatorName || 'StreamHub Creator'}</span>
+                  <CheckCircle2 className="w-3.5 h-3.5 flex-shrink-0" style={{ color: '#00D4FF' }} />
                 </div>
-              )}
+                <p className="text-xs text-muted-foreground mt-0.5">2.4M subscribers</p>
+              </div>
+              <div className="flex items-center gap-2 flex-shrink-0">
+                <button className="btn-cyan py-2 px-4 text-xs rounded-lg">Subscribe</button>
+                <button className="btn-outline-cyan py-2 px-3 text-xs rounded-lg gap-1.5">
+                  <DollarSign className="w-3 h-3" /> Tip Creator
+                </button>
+              </div>
+            </div>
+
+            {/* Description */}
+            <div className="p-4 rounded-xl bg-secondary/20">
+              <p className={cn('text-sm text-muted-foreground leading-relaxed', !showFullDesc && 'line-clamp-3')}>
+                {displayVideo.description || 'No description available.'}
+              </p>
+              <button
+                onClick={() => setShowFullDesc(!showFullDesc)}
+                className="text-xs mt-2 font-medium transition-colors hover:text-foreground"
+                style={{ color: '#00D4FF' }}
+              >
+                {showFullDesc ? 'Show less' : 'Show more'}
+              </button>
             </div>
           </div>
 
-          {/* ── Recommended Videos ───────────────────────────────────────── */}
-          <aside className="lg:col-span-1">
-            <h2 className="text-lg font-semibold text-foreground mb-4">Recommended</h2>
-            {recommendedVideos.length === 0 ? (
-              <p className="text-muted-foreground text-sm">No recommendations yet.</p>
-            ) : (
-              <div className="space-y-2">
-                {recommendedVideos.map((recVideo) => (
-                  <VideoCard key={recVideo.id} video={recVideo} variant="horizontal" />
-                ))}
-              </div>
-            )}
-          </aside>
+          {/* ── Right: Up Next ────────────────────────────────────────────── */}
+          <div className="lg:w-80 xl:w-96 flex-shrink-0">
+            <h3 className="text-sm font-semibold text-foreground mb-3">Up Next</h3>
+            <div className="space-y-1">
+              {relatedVideos.map((v) => (
+                <VideoCard key={v.id} video={v} variant="horizontal" />
+              ))}
+            </div>
+          </div>
         </div>
       </div>
     </Layout>

@@ -1,228 +1,160 @@
-import React, { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import { Search, Bell, Menu, X, User, LogOut, Settings, Heart, History, Upload } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
+import React, { useState, useEffect } from 'react';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { Search, Bell, Radio, Menu, X } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useAuth } from '@/contexts/AuthContext';
 import { cn } from '@/lib/utils';
 
-export const Navbar: React.FC = () => {
-  const [isSearchOpen, setIsSearchOpen] = useState(false);
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
-  const { user, isAuthenticated, logout } = useAuth();
-  const navigate = useNavigate();
+const TOP_NAV_LINKS = [
+  { label: 'Movies', href: '/browse?type=movie' },
+  { label: 'TV Shows', href: '/browse?type=series' },
+  { label: 'Live', href: '/live' },
+];
 
-  const navLinks = [
-    { label: 'Home', href: '/' },
-    { label: 'Movies', href: '/browse?type=movie' },
-    { label: 'Series', href: '/browse?type=series' },
-    { label: 'Live', href: '/live' },
-  ];
+/** Minimal top bar used on landing/public pages (wide layout, no sidebar) */
+export const TopNavbar: React.FC = () => {
+  const { user, isAuthenticated } = useAuth();
+  const { pathname } = useLocation();
+  const navigate = useNavigate();
+  const [scrolled, setScrolled] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [query, setQuery] = useState('');
+
+  useEffect(() => {
+    const handler = () => setScrolled(window.scrollY > 40);
+    window.addEventListener('scroll', handler);
+    return () => window.removeEventListener('scroll', handler);
+  }, []);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
-    if (searchQuery.trim()) {
-      navigate(`/browse?search=${encodeURIComponent(searchQuery)}`);
-      setIsSearchOpen(false);
-    }
-  };
-
-  const handleLogout = () => {
-    logout();
-    navigate('/');
+    if (query.trim()) navigate(`/browse?search=${encodeURIComponent(query.trim())}`);
   };
 
   return (
-    <header className="fixed top-0 left-0 right-0 z-50 nav-blur border-b border-border/50">
-      <div className="container mx-auto px-4">
-        <div className="flex items-center justify-between h-16">
-          {/* Logo */}
-          <Link to="/" className="flex items-center gap-2">
-            <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
-              <span className="text-primary-foreground font-bold text-lg">S</span>
-            </div>
-            <span className="text-xl font-bold text-foreground hidden sm:block">StreamVault</span>
-          </Link>
-
-          {/* Desktop Navigation */}
-          <nav className="hidden md:flex items-center gap-6">
-            {navLinks.map((link) => (
-              <Link
-                key={link.href}
-                to={link.href}
-                className="text-muted-foreground hover:text-foreground transition-colors text-sm font-medium"
-              >
-                {link.label}
-              </Link>
-            ))}
-          </nav>
-
-          {/* Right Section */}
-          <div className="flex items-center gap-2">
-            {/* Search */}
-            <div className="relative">
-              {isSearchOpen ? (
-                <form onSubmit={handleSearch} className="flex items-center">
-                  <Input
-                    type="search"
-                    placeholder="Search..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    className="w-48 md:w-64 bg-secondary border-border"
-                    autoFocus
-                  />
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => setIsSearchOpen(false)}
-                    className="ml-1"
-                  >
-                    <X className="w-4 h-4" />
-                  </Button>
-                </form>
-              ) : (
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => setIsSearchOpen(true)}
-                  aria-label="Search"
-                >
-                  <Search className="w-5 h-5" />
-                </Button>
-              )}
-            </div>
-
-            {isAuthenticated ? (
-              <>
-                {/* Upload Button */}
-                <Button variant="ghost" size="icon" asChild aria-label="Upload video" className="hidden sm:flex">
-                  <Link to="/upload">
-                    <Upload className="w-5 h-5" />
-                  </Link>
-                </Button>
-
-                {/* Notifications */}
-                <Button variant="ghost" size="icon" aria-label="Notifications" className="hidden sm:flex">
-                  <Bell className="w-5 h-5" />
-                </Button>
-
-                {/* Profile Dropdown */}
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" className="relative h-9 w-9 rounded-full">
-                      <Avatar className="h-9 w-9">
-                        <AvatarImage src={user?.avatar} alt={user?.username} />
-                        <AvatarFallback>{user?.username?.charAt(0).toUpperCase()}</AvatarFallback>
-                      </Avatar>
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent className="w-56 glass-card" align="end">
-                    <div className="px-2 py-1.5">
-                      <p className="text-sm font-medium">{user?.username}</p>
-                      <p className="text-xs text-muted-foreground">{user?.email}</p>
-                    </div>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem asChild>
-                      <Link to="/profile" className="flex items-center">
-                        <User className="mr-2 h-4 w-4" />
-                        Profile
-                      </Link>
-                    </DropdownMenuItem>
-                    <DropdownMenuItem asChild>
-                      <Link to="/profile?tab=history" className="flex items-center">
-                        <History className="mr-2 h-4 w-4" />
-                        Watch History
-                      </Link>
-                    </DropdownMenuItem>
-                    <DropdownMenuItem asChild>
-                      <Link to="/profile?tab=saved" className="flex items-center">
-                        <Heart className="mr-2 h-4 w-4" />
-                        Saved Videos
-                      </Link>
-                    </DropdownMenuItem>
-                    <DropdownMenuItem asChild>
-                      <Link to="/profile?tab=settings" className="flex items-center">
-                        <Settings className="mr-2 h-4 w-4" />
-                        Settings
-                      </Link>
-                    </DropdownMenuItem>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem onClick={handleLogout} className="text-destructive">
-                      <LogOut className="mr-2 h-4 w-4" />
-                      Logout
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </>
-            ) : (
-              <div className="hidden sm:flex items-center gap-2">
-                <Button variant="ghost" asChild>
-                  <Link to="/login">Sign In</Link>
-                </Button>
-                <Button asChild>
-                  <Link to="/signup">Get Started</Link>
-                </Button>
-              </div>
-            )}
-
-            {/* Mobile Menu Toggle */}
-            <Button
-              variant="ghost"
-              size="icon"
-              className="md:hidden"
-              onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-              aria-label="Toggle menu"
-            >
-              {isMobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
-            </Button>
+    <header
+      className={cn(
+        'fixed top-0 left-0 right-0 z-50 transition-all duration-300',
+        scrolled ? 'nav-blur shadow-xl' : 'bg-transparent',
+      )}
+    >
+      <div className="max-w-7xl mx-auto px-6 flex items-center justify-between h-16 gap-6">
+        {/* Logo */}
+        <Link to="/" className="flex items-center gap-2.5 flex-shrink-0">
+          <div
+            className="w-8 h-8 rounded-lg flex items-center justify-center font-bold text-sm"
+            style={{ background: 'var(--gradient-cyan-purple)', color: 'hsl(220 20% 6%)' }}
+          >
+            S
           </div>
-        </div>
+          <span className="font-bold text-base tracking-wide hidden sm:block" style={{ color: '#00D4FF' }}>
+            STREAMHUB
+          </span>
+        </Link>
 
-        {/* Mobile Menu */}
-        <div
-          className={cn(
-            'md:hidden overflow-hidden transition-all duration-300',
-            isMobileMenuOpen ? 'max-h-96 pb-4' : 'max-h-0'
+        {/* Center nav */}
+        <nav className="hidden md:flex items-center gap-7">
+          {TOP_NAV_LINKS.map((l) => (
+            <Link
+              key={l.href}
+              to={l.href}
+              className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+            >
+              {l.label}
+            </Link>
+          ))}
+        </nav>
+
+        {/* Right */}
+        <div className="flex items-center gap-3 ml-auto">
+          {searchOpen ? (
+            <form onSubmit={handleSearch} className="flex items-center gap-2">
+              <input
+                className="search-input w-48 md:w-64 py-1.5"
+                placeholder="Search..."
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                autoFocus
+              />
+              <button type="button" onClick={() => setSearchOpen(false)}
+                className="p-1.5 text-muted-foreground hover:text-foreground">
+                <X className="w-4 h-4" />
+              </button>
+            </form>
+          ) : (
+            <button onClick={() => setSearchOpen(true)}
+              className="p-2 text-muted-foreground hover:text-foreground transition-colors">
+              <Search className="w-4.5 h-4.5 w-[18px] h-[18px]" />
+            </button>
           )}
-        >
-          <nav className="flex flex-col gap-2 pt-2">
-            {navLinks.map((link) => (
-              <Link
-                key={link.href}
-                to={link.href}
-                onClick={() => setIsMobileMenuOpen(false)}
-                className="text-muted-foreground hover:text-foreground transition-colors py-2 px-4 rounded-lg hover:bg-secondary"
-              >
-                {link.label}
+
+          {isAuthenticated ? (
+            <>
+              <Link to="/live" className="btn-cyan py-1.5 px-4 text-xs gap-1.5 rounded-lg">
+                <Radio className="w-3.5 h-3.5" /> Go Live
               </Link>
-            ))}
-            {!isAuthenticated && (
-              <div className="flex flex-col gap-2 pt-2 border-t border-border mt-2">
-                <Button variant="outline" asChild className="w-full">
-                  <Link to="/login" onClick={() => setIsMobileMenuOpen(false)}>
-                    Sign In
-                  </Link>
-                </Button>
-                <Button asChild className="w-full">
-                  <Link to="/signup" onClick={() => setIsMobileMenuOpen(false)}>
-                    Get Started
-                  </Link>
-                </Button>
-              </div>
-            )}
-          </nav>
+              <button className="relative p-2 text-muted-foreground hover:text-foreground transition-colors">
+                <Bell className="w-[18px] h-[18px]" />
+                <span className="absolute top-1.5 right-1.5 w-1.5 h-1.5 rounded-full bg-primary" />
+              </button>
+              <Link to="/profile">
+                <Avatar className="w-8 h-8 ring-2 ring-primary/40 hover:ring-primary/80 transition-all">
+                  <AvatarImage src={user?.avatar} />
+                  <AvatarFallback className="text-xs font-bold" style={{ background: 'var(--gradient-cyan-purple)', color: 'hsl(220 20% 6%)' }}>
+                    {user?.username?.charAt(0).toUpperCase()}
+                  </AvatarFallback>
+                </Avatar>
+              </Link>
+            </>
+          ) : (
+            <>
+              <Link to="/login" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
+                Login
+              </Link>
+              <Link to="/signup" className="btn-outline-cyan text-xs py-1.5 px-4">
+                Sign Up Free
+              </Link>
+            </>
+          )}
         </div>
       </div>
     </header>
+  );
+};
+
+/** Top bar used inside the sidebar layout (authenticated/browse pages) with search + Go Live */
+export const InnerNavbar: React.FC = () => {
+  const navigate = useNavigate();
+  const [query, setQuery] = useState('');
+  const { user, isAuthenticated } = useAuth();
+
+  const handleSearch = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (query.trim()) navigate(`/browse?search=${encodeURIComponent(query.trim())}`);
+  };
+
+  return (
+    <div className="flex items-center gap-4 px-6 py-3 border-b border-white/[.05]"
+      style={{ background: 'hsl(220 20% 6% / .6)', backdropFilter: 'blur(16px)' }}>
+      {/* Search */}
+      <form onSubmit={handleSearch} className="flex-1 relative max-w-md">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
+        <input
+          className="search-input"
+          placeholder="Search streams, movies, or masters..."
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+        />
+      </form>
+      <div className="flex items-center gap-3 ml-auto">
+        <Link to="/live" className="btn-cyan py-1.5 px-4 text-xs gap-1.5 rounded-lg">
+          <Radio className="w-3.5 h-3.5" /> Go Live
+        </Link>
+        <button className="relative p-2 text-muted-foreground hover:text-foreground transition-colors">
+          <Bell className="w-[18px] h-[18px]" />
+          <span className="absolute top-1.5 right-1.5 w-1.5 h-1.5 rounded-full bg-primary" />
+        </button>
+      </div>
+    </div>
   );
 };
